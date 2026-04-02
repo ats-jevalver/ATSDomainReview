@@ -44,21 +44,23 @@ app.include_router(domains.router)
 app.include_router(reports.router)
 app.include_router(auth_router.router)
 
-# Static files for uploaded logos
-static_dir = Path(app_settings.static_dir)
-static_dir.mkdir(exist_ok=True)
-app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
-
-# Serve frontend static files if the build directory exists
-_frontend_dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"
-if _frontend_dist.is_dir():
-    app.mount("/", StaticFiles(directory=str(_frontend_dist), html=True), name="frontend")
-
 
 @app.get("/api/health", tags=["system"])
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "ats-domain-review"}
+
+
+# Static files for uploaded logos
+static_dir = Path(app_settings.static_dir)
+static_dir.mkdir(exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+# Serve frontend static files if the build directory exists — MUST be last
+# because the "/" mount catches all unmatched routes.
+_frontend_dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+if _frontend_dist.is_dir():
+    app.mount("/", StaticFiles(directory=str(_frontend_dist), html=True), name="frontend")
 
 
 if __name__ == "__main__":
