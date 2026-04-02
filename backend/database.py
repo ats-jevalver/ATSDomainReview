@@ -55,7 +55,13 @@ async def init_database() -> None:
     """Create database tables if they do not exist."""
     pool = await _get_pool()
     async with pool.acquire() as conn:
-        await conn.execute(_CREATE_TABLES_SQL)
+        # asyncpg's execute() only supports a single statement,
+        # so run each DDL statement individually in a transaction.
+        async with conn.transaction():
+            for statement in _CREATE_TABLES_SQL.split(";"):
+                statement = statement.strip()
+                if statement:
+                    await conn.execute(statement)
 
 
 async def close_database() -> None:

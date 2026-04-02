@@ -55,7 +55,7 @@ if _frontend_dist.is_dir():
     app.mount("/", StaticFiles(directory=str(_frontend_dist), html=True), name="frontend")
 
 
-@app.get("/health", tags=["system"])
+@app.get("/api/health", tags=["system"])
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "ats-domain-review"}
