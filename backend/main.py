@@ -6,8 +6,9 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from config import app_settings
@@ -56,11 +57,19 @@ static_dir = Path(app_settings.static_dir)
 static_dir.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-# Serve frontend static files if the build directory exists — MUST be last
-# because the "/" mount catches all unmatched routes.
+# Serve frontend — use a catch-all route instead of mount("/") so that
+# API routes always take priority over the SPA fallback.
 _frontend_dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 if _frontend_dist.is_dir():
-    app.mount("/", StaticFiles(directory=str(_frontend_dist), html=True), name="frontend")
+    app.mount("/assets", StaticFiles(directory=str(_frontend_dist / "assets")), name="frontend-assets")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    async def serve_frontend(request: Request, path: str):
+        """Serve frontend static files, falling back to index.html for SPA routing."""
+        file = _frontend_dist / path
+        if file.is_file():
+            return FileResponse(file)
+        return FileResponse(_frontend_dist / "index.html")
 
 
 if __name__ == "__main__":
