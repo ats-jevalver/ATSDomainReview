@@ -36,8 +36,11 @@ branding = BrandingSettings()
 class AppSettings:
     """General application settings."""
 
-    database_path: str = field(
-        default_factory=lambda: os.environ.get("ATS_DB_PATH", "ats_domain_review.db")
+    database_url: str = field(
+        default_factory=lambda: os.environ.get(
+            "DATABASE_URL",
+            "postgresql://ats_user:ats_pass@10.10.10.20:5432/ats_domain_review"
+        )
     )
     max_concurrent_scans: int = 5
     collector_timeout: int = 10
