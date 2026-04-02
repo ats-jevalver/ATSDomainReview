@@ -1,0 +1,14 @@
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+python-whois==0.9.5
+dnspython==2.7.0
+httpx==0.28.1
+cryptography==44.0.3
+fpdf2==2.8.3
+Jinja2==3.1.6
+aiosqlite==0.21.0
+python-multipart==0.0.20
+pydantic==2.11.1
+eval_type_backport==0.3.1
+msal==1.31.1
+PyJWT[crypto]==2.10.1

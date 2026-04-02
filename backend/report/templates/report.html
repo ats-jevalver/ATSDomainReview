@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Domain Health Report - {{ report.domain }}</title>
+<style>
+  @page {
+    size: A4;
+    margin: 20mm 15mm 25mm 15mm;
+    @bottom-center {
+      content: "{{ branding.footer_text }}";
+      font-size: 8pt;
+      color: #666;
+    }
+    @bottom-right {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 8pt;
+      color: #666;
+    }
+  }
+
+  :root {
+    --primary: {{ branding.primary_color }};
+    --accent: {{ branding.accent_color }};
+    --green: #22763d;
+    --yellow: #b7791f;
+    --red: #c53030;
+    --light-bg: #f7fafc;
+    --border: #e2e8f0;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 10pt;
+    line-height: 1.5;
+    color: #2d3748;
+  }
+
+  /* --- Header --- */
+  .report-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 3px solid var(--primary);
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+  }
+  .report-header .logo-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .report-header img {
+    max-height: 48px;
+    max-width: 180px;
+  }
+  .report-header .company-name {
+    font-size: 16pt;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .report-header .meta {
+    text-align: right;
+    font-size: 9pt;
+    color: #718096;
+  }
+
+  h1 {
+    font-size: 18pt;
+    color: var(--primary);
+    margin-bottom: 4px;
+  }
+  h2 {
+    font-size: 13pt;
+    color: var(--primary);
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 4px;
+    margin: 20px 0 10px 0;
+  }
+  h3 {
+    font-size: 11pt;
+    color: var(--accent);
+    margin: 12px 0 6px 0;
+  }
+
+  /* --- Score Banner --- */
+  .score-banner {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 16px 20px;
+    border-radius: 8px;
+    margin: 16px 0 20px 0;
+  }
+  .score-banner.good { background: #f0fff4; border: 2px solid var(--green); }
+  .score-banner.moderate { background: #fffff0; border: 2px solid var(--yellow); }
+  .score-banner.poor { background: #fff5f5; border: 2px solid var(--red); }
+
+  .score-circle {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22pt;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .score-circle.good { background: var(--green); }
+  .score-circle.moderate { background: var(--yellow); }
+  .score-circle.poor { background: var(--red); }
+
+  .score-details { flex: 1; }
+  .score-details .risk-label {
+    font-size: 14pt;
+    font-weight: 700;
+  }
+  .risk-label.good { color: var(--green); }
+  .risk-label.moderate { color: var(--yellow); }
+  .risk-label.poor { color: var(--red); }
+
+  /* --- Badges --- */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 8pt;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .badge-good { background: #c6f6d5; color: var(--green); }
+  .badge-moderate { background: #fefcbf; color: var(--yellow); }
+  .badge-poor { background: #fed7d7; color: var(--red); }
+  .badge-info { background: #bee3f8; color: #2b6cb0; }
+  .badge-na { background: #e2e8f0; color: #718096; }
+
+  /* --- Tables --- */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0 16px 0;
+    font-size: 9.5pt;
+  }
+  th {
+    background: var(--primary);
+    color: #fff;
+    text-align: left;
+    padding: 6px 10px;
+    font-weight: 600;
+  }
+  td {
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  tr:nth-child(even) td {
+    background: var(--light-bg);
+  }
+
+  /* --- Category Score Bar --- */
+  .cat-scores {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 10px 0;
+  }
+  .cat-score-item {
+    flex: 1;
+    min-width: 120px;
+    background: var(--light-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    text-align: center;
+  }
+  .cat-score-item .cat-name {
+    font-size: 8pt;
+    color: #718096;
+    margin-bottom: 2px;
+  }
+  .cat-score-item .cat-val {
+    font-size: 14pt;
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  /* --- Lists --- */
+  .finding-list {
+    list-style: none;
+    padding: 0;
+    margin: 6px 0;
+  }
+  .finding-list li {
+    padding: 4px 0 4px 20px;
+    position: relative;
+    font-size: 9.5pt;
+  }
+  .finding-list li::before {
+    position: absolute;
+    left: 0;
+    top: 4px;
+    font-size: 10pt;
+  }
+  .finding-list.strengths li::before { content: "\2705"; }
+  .finding-list.weaknesses li::before { content: "\26A0\FE0F"; }
+
+  .rec-list {
+    margin: 8px 0 16px 0;
+    padding: 0;
+    counter-reset: rec;
+    list-style: none;
+  }
+  .rec-list li {
+    padding: 6px 0 6px 32px;
+    position: relative;
+    font-size: 9.5pt;
+    border-bottom: 1px solid var(--border);
+  }
+  .rec-list li::before {
+    counter-increment: rec;
+    content: counter(rec);
+    position: absolute;
+    left: 0;
+    top: 5px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-size: 8pt;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* --- Section break for PDF --- */
+  .page-break { page-break-before: always; }
+
+  .mono {
+    font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+    font-size: 8.5pt;
+    background: #edf2f7;
+    padding: 1px 4px;
+    border-radius: 3px;
+    word-break: break-all;
+  }
+
+  .section-card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
+  }
+
+  .two-col {
+    display: flex;
+    gap: 16px;
+  }
+  .two-col > div { flex: 1; }
+</style>
+</head>
+<body>
+
+<!-- COVER PAGE -->
+<div style="text-align: center; padding-top: 80px; page-break-after: always;">
+  <div style="background: var(--primary); padding: 30px 20px; border-radius: 8px; margin-bottom: 40px;">
+    {% if branding.logo_url %}
+    <img src="{{ branding.logo_url }}" alt="" style="max-height: 48px; margin-bottom: 10px;">
+    {% endif %}
+    <div style="font-size: 20pt; font-weight: 700; color: #fff;">{{ branding.company_name }}</div>
+    <div style="font-size: 11pt; color: #a0bfdf; margin-top: 4px;">Domain Health &amp; Security Assessment</div>
+  </div>
+
+  {% set site_name = report.http.site_title or report.domain %}
+  <div style="font-size: 22pt; font-weight: 700; color: var(--primary); margin-bottom: 6px;">{{ site_name }}</div>
+  {% if site_name != report.domain %}
+  <div style="font-size: 12pt; color: #718096; margin-bottom: 8px;">{{ report.domain }}</div>
+  {% endif %}
+
+  <div style="font-size: 11pt; color: #718096; margin-bottom: 30px;">{{ report.timestamp.strftime('%B %d, %Y') }}</div>
+
+  <div style="max-width: 420px; margin: 0 auto; font-size: 9.5pt; color: #4a5568; line-height: 1.6;">
+    This report provides a comprehensive review of the domain's registration status,
+    email authentication configuration (SPF, DKIM, DMARC), DNS infrastructure,
+    website security, and SSL/TLS certificate health. Findings are scored, explained
+    in plain language, and accompanied by prioritized recommendations.
+  </div>
+
+  {% set rl = report.security_assessment.risk_level.lower() %}
+  <div style="margin-top: 30px;">
+    <span style="font-size: 14pt; font-weight: 700; color: var(--primary);">
+      Overall Score: {{ report.security_assessment.overall_score }} / 100
+    </span>
+    &nbsp;
+    <span class="badge {% if rl == 'good' %}badge-good{% elif rl == 'moderate' %}badge-moderate{% else %}badge-poor{% endif %}" style="font-size: 10pt; padding: 4px 12px;">
+      {{ report.security_assessment.risk_level }}
+    </span>
+  </div>
+
+  {% if prepared_by %}
+  <div style="margin-top: 20px; font-size: 9.5pt; color: #4a5568;">
+    <div><strong>Prepared by:</strong> {{ prepared_by.name }}{% if prepared_by.title %}, {{ prepared_by.title }}{% endif %}</div>
+    {% if prepared_by.phone %}<div>{{ prepared_by.phone }}</div>{% endif %}
+    <div>{{ prepared_by.email }}</div>
+  </div>
+  {% endif %}
+
+  <div style="position: absolute; bottom: 30px; left: 0; right: 0; font-size: 8pt; color: #a0aec0; text-align: center;">
+    {{ branding.footer_text }}
+  </div>
+</div>
+
+<!-- HEADER (repeating on content pages) -->
+<div class="report-header">
+  <div class="logo-area">
+    {% if branding.logo_url %}
+    <img src="{{ branding.logo_url }}" alt="{{ branding.company_name }} logo">
+    {% endif %}
+    <span class="company-name">{{ branding.company_name }}</span>
+  </div>
+  <div class="meta">
+    <div><strong>Domain Health Report</strong></div>
+    <div>{{ report.domain }}</div>
+    <div>{{ report.timestamp.strftime('%B %d, %Y at %H:%M UTC') }}</div>
+    <div>Scan ID: {{ report.scan_id[:8] }}...</div>
+  </div>
+</div>
+
+<h1>Domain Assessment: {{ report.domain }}</h1>
+
+<!-- ============================================================ -->
+<!-- FREE DOMAIN ADVISORY                                          -->
+<!-- ============================================================ -->
+{% if report.is_free_domain %}
+<div class="page-break"></div>
+<h2 style="color: var(--yellow);">Advisory: Free Email Domain Detected</h2>
+<div class="section-card" style="border-left: 4px solid var(--yellow); background: #fffff0;">
+  <p style="font-size: 10pt; color: #4a5568; margin-bottom: 8px;">
+    The email address(es) associated with this report use <strong>{{ report.domain }}</strong>,
+    a free consumer email service. While free email works for personal use,
+    it presents significant drawbacks for business communication.
+  </p>
+  {% if report.source_emails %}
+  <p style="font-size: 9pt; color: #718096;"><strong>Addresses:</strong> {{ report.source_emails | join(', ') }}</p>
+  {% endif %}
+</div>
+
+<h3>Why a Business Email Domain Matters</h3>
+<table>
+  <tr><th style="width:28%">Benefit</th><th>Details</th></tr>
+  <tr><td><strong>Professional credibility</strong></td><td>Emails from yourname@yourcompany.com inspire more trust than a free account.</td></tr>
+  <tr><td><strong>Brand consistency</strong></td><td>Every email reinforces your brand and keeps your company name in front of customers.</td></tr>
+  <tr><td><strong>Security &amp; control</strong></td><td>Enforce password policies, enable MFA, and revoke access when staff leave.</td></tr>
+  <tr><td><strong>Email deliverability</strong></td><td>Business domains with SPF, DKIM, and DMARC have significantly better inbox placement.</td></tr>
+  <tr><td><strong>Data ownership</strong></td><td>Company domain means you retain control of business correspondence when employees leave.</td></tr>
+  <tr><td><strong>Compliance readiness</strong></td><td>Many regulations require audit trails, retention policies, and encryption that free email lacks.</td></tr>
+  <tr><td><strong>Scalability</strong></td><td>Platforms like Microsoft 365 and Google Workspace include calendars, storage, and collaboration tools.</td></tr>
+</table>
+
+<h3>Recommended Next Steps</h3>
+<ol class="rec-list">
+  <li>Register a domain that matches your business name (if not already done).</li>
+  <li>Set up a business email plan (Microsoft 365 or Google Workspace).</li>
+  <li>Configure SPF, DKIM, and DMARC records to protect your brand.</li>
+  <li>Migrate existing business correspondence to the new domain.</li>
+</ol>
+{% endif %}
+
+<!-- ============================================================ -->
+<!-- SECTION 1: EXECUTIVE SUMMARY                                  -->
+<!-- ============================================================ -->
+<h2>1. Executive Summary</h2>
+
+{% set rl = report.security_assessment.risk_level.lower() %}
+<div class="score-banner {{ rl }}">
+  <div class="score-circle {{ rl }}">{{ report.security_assessment.overall_score }}</div>
+  <div class="score-details">
+    <div class="risk-label {{ rl }}">{{ report.security_assessment.risk_level }} Health</div>
+    <div style="margin-top:4px; font-size:9.5pt; color:#4a5568;">
+      Overall score out of 100 across registration, email security, DNS infrastructure, web/SSL, and general configuration.
+    </div>
+  </div>
+</div>
+
+<div class="cat-scores">
+  {% for cat, val in report.security_assessment.category_scores.items() %}
+  <div class="cat-score-item">
+    <div class="cat-name">{{ cat }}</div>
+    <div class="cat-val">{{ val }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if report.security_assessment.strengths %}
+<h3>Key Strengths</h3>
+<ul class="finding-list strengths">
+  {% for s in report.security_assessment.strengths[:5] %}
+  <li>{{ s }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if report.security_assessment.weaknesses %}
+<h3>Key Findings</h3>
+<ul class="finding-list weaknesses">
+  {% for w in report.security_assessment.weaknesses[:5] %}
+  <li>{{ w }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+<!-- ============================================================ -->
+<!-- WHAT THIS MEANS (IMPLICATIONS)                                -->
+<!-- ============================================================ -->
+{% if report.security_assessment.implications %}
+<div class="page-break"></div>
+<h2>What This Means</h2>
+<p style="font-size: 9pt; color: #718096; margin-bottom: 12px;">A plain-language summary of each finding and its business impact.</p>
+
+{% for imp in report.security_assessment.implications %}
+<div class="section-card" style="margin-bottom: 10px;
+  {% if imp.severity == 'good' %}border-left: 4px solid var(--green); background: #f0fff4;
+  {% elif imp.severity == 'warning' %}border-left: 4px solid var(--yellow); background: #fffff0;
+  {% elif imp.severity == 'critical' %}border-left: 4px solid var(--red); background: #fff5f5;
+  {% else %}border-left: 4px solid #3182ce; background: #ebf8ff;{% endif %}">
+  <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px;">
+    <span class="badge {% if imp.severity == 'good' %}badge-good{% elif imp.severity == 'warning' %}badge-moderate{% elif imp.severity == 'critical' %}badge-poor{% else %}badge-info{% endif %}">
+      {% if imp.severity == 'good' %}No action needed{% elif imp.severity == 'warning' %}Recommended fix{% elif imp.severity == 'critical' %}Action required{% else %}For your awareness{% endif %}
+    </span>
+    <strong style="font-size: 9.5pt; color: #2d3748;">{{ imp.finding }}</strong>
+  </div>
+  <p style="font-size: 9pt; color: #4a5568; margin: 0; line-height: 1.5;">{{ imp.implication }}</p>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- ============================================================ -->
+<!-- SECTION 2: REGISTRATION DETAILS                               -->
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2>2. Registration Details</h2>
+<div class="section-card">
+<table>
+  <tr><th style="width:35%">Field</th><th>Value</th></tr>
+  <tr><td>Registrar</td><td>{{ report.whois.registrar or 'N/A' }}</td></tr>
+  <tr><td>Creation Date</td><td>{{ report.whois.creation_date.strftime('%Y-%m-%d') if report.whois.creation_date else 'N/A' }}</td></tr>
+  <tr><td>Expiration Date</td><td>
+    {% if report.whois.expiration_date %}
+      {{ report.whois.expiration_date.strftime('%Y-%m-%d') }}
+      {% set days_left = (report.whois.expiration_date - report.timestamp).days %}
+      {% if days_left < 30 %}
+        <span class="badge badge-poor">{{ days_left }} days left</span>
+      {% elif days_left < 90 %}
+        <span class="badge badge-moderate">{{ days_left }} days left</span>
+      {% else %}
+        <span class="badge badge-good">{{ days_left }} days left</span>
+      {% endif %}
+    {% else %}
+      N/A
+    {% endif %}
+  </td></tr>
+  <tr><td>Last Updated</td><td>{{ report.whois.updated_date.strftime('%Y-%m-%d') if report.whois.updated_date else 'N/A' }}</td></tr>
+  <tr><td>Name Servers</td><td>
+    {% if report.whois.name_servers %}
+      {% for ns in report.whois.name_servers %}<span class="mono">{{ ns }}</span>{% if not loop.last %}, {% endif %}{% endfor %}
+    {% else %}N/A{% endif %}
+  </td></tr>
+  <tr><td>Registrant</td><td>{{ report.whois.registrant or 'N/A' }}</td></tr>
+  <tr><td>Privacy Protection</td><td>
+    {% if report.whois.privacy_protected %}
+      <span class="badge badge-info">Enabled</span>
+    {% else %}
+      <span class="badge badge-na">Not Detected</span>
+    {% endif %}
+  </td></tr>
+</table>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 3: EMAIL CONFIGURATION                                -->
+<!-- ============================================================ -->
+<h2>3. Email Configuration</h2>
+
+<div class="section-card">
+<h3>MX Records</h3>
+{% if report.email_security.mx_records %}
+<table>
+  <tr><th>Mail Server</th></tr>
+  {% for mx in report.email_security.mx_records %}
+  <tr><td class="mono">{{ mx }}</td></tr>
+  {% endfor %}
+</table>
+{% else %}
+<p>No MX records found. <span class="badge badge-poor">Missing</span></p>
+{% endif %}
+
+<h3>SPF (Sender Policy Framework)</h3>
+<table>
+  <tr><th style="width:25%">Status</th><th>Details</th></tr>
+  <tr>
+    <td>
+      {% if report.email_security.spf.record and report.email_security.spf.valid %}
+        <span class="badge badge-good">Valid</span>
+      {% elif report.email_security.spf.record %}
+        <span class="badge badge-moderate">Issues Found</span>
+      {% else %}
+        <span class="badge badge-poor">Missing</span>
+      {% endif %}
+    </td>
+    <td>
+      {% if report.email_security.spf.record %}
+        <span class="mono">{{ report.email_security.spf.record }}</span>
+      {% else %}
+        No SPF record published.
+      {% endif %}
+    </td>
+  </tr>
+</table>
+{% if report.email_security.spf.issues %}
+<ul class="finding-list weaknesses">
+  {% for i in report.email_security.spf.issues %}<li>{{ i }}</li>{% endfor %}
+</ul>
+{% endif %}
+
+<h3>DMARC</h3>
+<table>
+  <tr><th style="width:25%">Status</th><th>Policy</th><th>Record</th></tr>
+  <tr>
+    <td>
+      {% if report.email_security.dmarc.valid and report.email_security.dmarc.policy in ('reject', 'quarantine') %}
+        <span class="badge badge-good">{{ report.email_security.dmarc.policy | title }}</span>
+      {% elif report.email_security.dmarc.valid %}
+        <span class="badge badge-moderate">{{ report.email_security.dmarc.policy or 'Unknown' | title }}</span>
+      {% else %}
+        <span class="badge badge-poor">Missing / Invalid</span>
+      {% endif %}
+    </td>
+    <td>{{ report.email_security.dmarc.policy or 'N/A' }}</td>
+    <td>
+      {% if report.email_security.dmarc.record %}
+        <span class="mono">{{ report.email_security.dmarc.record }}</span>
+      {% else %}Not configured{% endif %}
+    </td>
+  </tr>
+</table>
+{% if report.email_security.dmarc.issues %}
+<ul class="finding-list weaknesses">
+  {% for i in report.email_security.dmarc.issues %}<li>{{ i }}</li>{% endfor %}
+</ul>
+{% endif %}
+
+<h3>DKIM</h3>
+<table>
+  <tr><th style="width:25%">Status</th><th>Selectors Found</th></tr>
+  <tr>
+    <td>
+      {% if report.email_security.dkim.found %}
+        <span class="badge badge-good">Found</span>
+      {% else %}
+        <span class="badge badge-poor">Not Detected</span>
+      {% endif %}
+    </td>
+    <td>
+      {% if report.email_security.dkim.selectors_found %}
+        {% for s in report.email_security.dkim.selectors_found %}<span class="mono">{{ s }}</span>{% if not loop.last %}, {% endif %}{% endfor %}
+      {% else %}
+        None of {{ report.email_security.dkim.selectors_checked | length }} common selectors responded.
+      {% endif %}
+    </td>
+  </tr>
+</table>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 4: DNS / INFRASTRUCTURE                               -->
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2>4. DNS &amp; Infrastructure</h2>
+<div class="section-card">
+
+<div class="two-col">
+<div>
+<h3>A Records</h3>
+{% if report.dns.a_records %}
+<table><tr><th>IP Address</th></tr>
+{% for r in report.dns.a_records %}<tr><td class="mono">{{ r }}</td></tr>{% endfor %}
+</table>
+{% else %}<p><span class="badge badge-na">None</span></p>{% endif %}
+</div>
+<div>
+<h3>AAAA Records</h3>
+{% if report.dns.aaaa_records %}
+<table><tr><th>IPv6 Address</th></tr>
+{% for r in report.dns.aaaa_records %}<tr><td class="mono">{{ r }}</td></tr>{% endfor %}
+</table>
+{% else %}<p><span class="badge badge-na">None</span></p>{% endif %}
+</div>
+</div>
+
+<h3>Name Servers</h3>
+{% if report.dns.ns_records %}
+<table><tr><th>Nameserver</th></tr>
+{% for r in report.dns.ns_records %}<tr><td class="mono">{{ r }}</td></tr>{% endfor %}
+</table>
+{% else %}<p><span class="badge badge-poor">None Found</span></p>{% endif %}
+
+<h3>DNSSEC</h3>
+<table>
+  <tr><th style="width:25%">Status</th><th>Details</th></tr>
+  <tr>
+    <td>
+      {% if report.dnssec.enabled %}
+        <span class="badge badge-good">Enabled</span>
+      {% else %}
+        <span class="badge badge-moderate">Not Enabled</span>
+      {% endif %}
+    </td>
+    <td>{{ report.dnssec.details }}</td>
+  </tr>
+</table>
+
+{% if report.dns.txt_records %}
+<h3>TXT Records</h3>
+<table><tr><th>Record</th></tr>
+{% for r in report.dns.txt_records %}<tr><td class="mono">{{ r }}</td></tr>{% endfor %}
+</table>
+{% endif %}
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 5: WEB & CERTIFICATE                                  -->
+<!-- ============================================================ -->
+<h2>5. Web &amp; Certificate</h2>
+<div class="section-card">
+
+<h3>HTTP Connectivity</h3>
+<table>
+  <tr><th>Property</th><th>Value</th></tr>
+  <tr><td>Reachable</td><td>
+    {% if report.http.reachable %}<span class="badge badge-good">Yes</span>{% else %}<span class="badge badge-poor">No</span>{% endif %}
+  </td></tr>
+  <tr><td>HTTPS Enabled</td><td>
+    {% if report.http.https_enabled %}<span class="badge badge-good">Yes</span>{% else %}<span class="badge badge-poor">No</span>{% endif %}
+  </td></tr>
+  <tr><td>HTTP &rarr; HTTPS Redirect</td><td>
+    {% if report.http.redirect_to_https %}<span class="badge badge-good">Yes</span>{% else %}<span class="badge badge-moderate">No</span>{% endif %}
+  </td></tr>
+  <tr><td>Status Code</td><td>{{ report.http.status_code or 'N/A' }}</td></tr>
+  <tr><td>Response Time</td><td>
+    {% if report.http.response_time_ms is not none %}
+      {{ "%.0f"|format(report.http.response_time_ms) }} ms
+      {% if report.http.response_time_ms < 500 %}<span class="badge badge-good">Fast</span>
+      {% elif report.http.response_time_ms < 2000 %}<span class="badge badge-moderate">OK</span>
+      {% else %}<span class="badge badge-poor">Slow</span>{% endif %}
+    {% else %}N/A{% endif %}
+  </td></tr>
+</table>
+
+<h3>SSL / TLS Certificate</h3>
+<table>
+  <tr><th>Property</th><th>Value</th></tr>
+  <tr><td>Valid</td><td>
+    {% if report.ssl.valid %}<span class="badge badge-good">Yes</span>{% else %}<span class="badge badge-poor">No</span>{% endif %}
+  </td></tr>
+  <tr><td>Issuer</td><td>{{ report.ssl.issuer or 'N/A' }}</td></tr>
+  <tr><td>Subject</td><td>{{ report.ssl.subject or 'N/A' }}</td></tr>
+  <tr><td>Valid From</td><td>{{ report.ssl.not_before.strftime('%Y-%m-%d') if report.ssl.not_before else 'N/A' }}</td></tr>
+  <tr><td>Valid Until</td><td>
+    {% if report.ssl.not_after %}
+      {{ report.ssl.not_after.strftime('%Y-%m-%d') }}
+      {% if report.ssl.days_until_expiry is not none %}
+        {% if report.ssl.days_until_expiry < 30 %}
+          <span class="badge badge-poor">{{ report.ssl.days_until_expiry }} days</span>
+        {% elif report.ssl.days_until_expiry < 90 %}
+          <span class="badge badge-moderate">{{ report.ssl.days_until_expiry }} days</span>
+        {% else %}
+          <span class="badge badge-good">{{ report.ssl.days_until_expiry }} days</span>
+        {% endif %}
+      {% endif %}
+    {% else %}N/A{% endif %}
+  </td></tr>
+</table>
+{% if report.ssl.issues %}
+<ul class="finding-list weaknesses">
+  {% for i in report.ssl.issues %}<li>{{ i }}</li>{% endfor %}
+</ul>
+{% endif %}
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 6: SECURITY ASSESSMENT & RECOMMENDATIONS              -->
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2>6. Security Assessment &amp; Recommendations</h2>
+
+{% if report.security_assessment.strengths %}
+<h3>Strengths</h3>
+<ul class="finding-list strengths">
+  {% for s in report.security_assessment.strengths %}
+  <li>{{ s }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if report.security_assessment.weaknesses %}
+<h3>Areas for Improvement</h3>
+<ul class="finding-list weaknesses">
+  {% for w in report.security_assessment.weaknesses %}
+  <li>{{ w }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if report.security_assessment.recommendations %}
+<h3>Recommended Actions</h3>
+<ol class="rec-list">
+  {% for r in report.security_assessment.recommendations %}
+  <li>{{ r }}</li>
+  {% endfor %}
+</ol>
+{% endif %}
+
+<div style="margin-top: 30px; padding-top: 12px; border-top: 2px solid var(--primary); font-size: 8pt; color: #718096; text-align: center;">
+  {{ branding.footer_text }} | Generated on {{ report.timestamp.strftime('%Y-%m-%d %H:%M UTC') }}
+</div>
+
+</body>
+</html>
